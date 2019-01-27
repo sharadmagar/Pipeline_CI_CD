@@ -1,0 +1,97 @@
+https://dzone.com/articles/learn-how-to-setup-a-cicd-pipeline-from-scratch
+https://medium.com/@khandelwal12nidhi/ci-cd-with-jenkins-and-ansible-e9163d4a6e82
+https://www.guru99.com/maven-jenkins-with-selenium-complete-tutorial.html
+
+
+1. create EC2 Ubuntu Cloud Machine free tier
+2. install jenkins and docker
+3. add user to group
+	sudo usermod -a -G docker $USER
+4. reboot
+
+5. then modify sudoer file
+	sudo visudo
+	add jenkins ALL=(ALL) NOPASSWD: ALL
+	CTRl+O to save
+	CTRK+X  to exit
+
+6.sudo chmod a+rwx /var/run/docker.sock # You can provide just execute permission
+	sudo chmod a+rwx /var/run/docker.pid
+
+7. Restart All Service
+	systemctl start jenkins
+	systemctl enable jenkins
+	systemctl start Docker
+
+8. Create 3 Jobs and Associate Git Repo and Below Code According to mentione by Job1
+
+-----------JOB1-code------------------------
+
+#!/bin/bash
+echo "======Start Jenkins & Docker=============="
+
+systemctl start jenkins
+systemctl enable jenkins
+systemctl start Docker
+
+echo "*****.Starting CI CD Pipeline Tasks.*****"
+
+echo "------ ::Cloninig Repositoy:: ---------"
+
+git clone https://github.com/sharadmagar/devops_pipeline_demo.git
+
+#-BUILD
+echo ""
+echo "..... Build Phase Started :: Compiling Source Code :: ....."
+cd java_web_code
+export MAVEN_HOME=/usr/share/maven3 # your Mavan home path
+export PATH=$PATH:$MAVEN_HOME/bin
+mvn --version
+mvn install
+
+#-BUILD (TEST)
+echo ""
+echo "..... Test Phase Started :: Testing via Automated Scripts :: ....."
+cd ../integration-testing/
+mvn clean verify -P integration-test
+
+
+-----------JOB2-code----------------------------
+
+#!/bin/bash
+#-POSTBUILD (PROVISIONING DEPLOYMENT)
+echo ""
+echo "..... Integration phase Started :: Copying Artifacts :: ....."
+
+cd /var/lib/jenkins/workspace/CI_JOB/
+cp -f ./java_web_code/target/wildfly-spring-boot-sample-1.0.0.war ./devops_pipeline_demo/docker/wildfly-spring-boot-sample-1.0.0.war
+echo ""
+echo "..... Provisioning Phase Started :: Building Docker Container :: ....."
+
+cd ./devops_pipeline_demo/docker/
+sudo docker build -t devops_pipeline_demo .
+
+----------------JOB3-code-------------------
+
+sudo chmod a+rwx /var/run/docker.sock
+sudo chmod a+rwx /var/run/docker.pid
+
+sudo docker stop $(docker ps -a -q) && docker rm $(docker ps -a -q)
+
+	# run your container
+	echo ""
+	echo ".....Deplyoment phase Started :: Building Docker Container :: ....."
+    docker run -d -p 8180:8080 --name devops_pipeline_demo devops_pipeline_demo
+
+#-Completion
+echo "---------------------------------------------------------"
+echo "View App Deployed here http://Server-name:8180/"
+echo "---------------------------------------------------------"
+
+
+9. Associate Job2 to Job1  a& Job3 to Job3
+	and select the Trigger build even if build is stable
+
+10. Chekc the Public-Ip:8180/sample.text Url UR application is deployed there
+
+  -------------------------------Done----------------------------
